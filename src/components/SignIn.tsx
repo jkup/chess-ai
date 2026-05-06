@@ -1,6 +1,7 @@
 import { Crown, LogIn } from 'lucide-react'
 import { useState } from 'react'
 import { startSignIn } from '../lib/lichess-auth'
+import { HelpFab } from './HelpFab'
 
 type Props = {
   errorMessage?: string
@@ -20,7 +21,8 @@ export function SignIn({ errorMessage }: Props) {
   }
 
   return (
-    <main className="min-h-full flex items-center justify-center px-6 py-12">
+    <main className="min-h-full flex items-center justify-center px-6 py-12 relative">
+      <HelpFab />
       <div className="w-full max-w-md text-center">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[var(--color-accent)] mb-6">
           <Crown className="w-8 h-8 text-white" strokeWidth={2.25} />

@@ -30,6 +30,8 @@ src/
     Onboarding.tsx              — ELO slider (pre-filled from Lichess rating) + side picker
     GameView.tsx                — header (with sign-out), player cards, board, move list
     Board.tsx                   — chessground React wrapper
+    HowItWorks.tsx              — modal explaining the 3-step value prop (sign in, pick rating, play the crowd)
+    HelpFab.tsx                 — floating "How it works" pill that pairs the trigger with the modal
   hooks/
     useChessGame.ts             — chess.js wrapper: fen, turn, dests, history, status, makeMove
     useOpponent.ts              — auto-plays opponent moves from Lichess explorer; exposes idle/thinking/stuck/error/unauthorized

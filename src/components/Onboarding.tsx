@@ -8,6 +8,7 @@ import {
   type Side,
 } from '../state/game'
 import type { LichessProfile } from '../lib/lichess'
+import { HelpFab } from './HelpFab'
 
 type Props = {
   profile: LichessProfile
@@ -31,7 +32,8 @@ export function Onboarding({ profile, onStart }: Props) {
   }
 
   return (
-    <main className="min-h-full flex items-center justify-center px-6 py-12">
+    <main className="min-h-full flex items-center justify-center px-6 py-12 relative">
+      <HelpFab />
       <div className="w-full max-w-md">
         <div className="flex items-center gap-3 mb-8">
           <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-[var(--color-accent)]">

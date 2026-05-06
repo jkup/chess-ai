@@ -2,6 +2,7 @@ import { ArrowLeft, User } from 'lucide-react'
 import { useMemo } from 'react'
 import { resolveSide, type GameSettings } from '../state/game'
 import { useChessGame, type Color } from '../hooks/useChessGame'
+import { useOpponent, type OpponentStatus } from '../hooks/useOpponent'
 import { Board } from './Board'
 
 type Props = {
@@ -19,6 +20,13 @@ export function GameView({ settings, onExit }: Props) {
   const movableColor =
     game.status.kind === 'playing' && playersTurn ? playerColor : undefined
 
+  const opponent = useOpponent({
+    game,
+    color: opponentColor,
+    elo: settings.elo,
+    enabled: true,
+  })
+
   return (
     <div className="min-h-full flex flex-col">
       <header className="flex items-center justify-between px-4 py-3 border-b border-zinc-900">
@@ -33,6 +41,7 @@ export function GameView({ settings, onExit }: Props) {
           status={game.status}
           playersTurn={playersTurn}
           inCheck={game.inCheck}
+          opponentStatus={opponent.status}
         />
         <div className="w-20" />
       </header>
@@ -86,10 +95,12 @@ function StatusPill({
   status,
   playersTurn,
   inCheck,
+  opponentStatus,
 }: {
   status: ReturnType<typeof useChessGame>['status']
   playersTurn: boolean
   inCheck: boolean
+  opponentStatus: OpponentStatus
 }) {
   let text: string
   let tone: 'neutral' | 'accent' | 'warn' = 'neutral'
@@ -99,12 +110,18 @@ function StatusPill({
     tone = 'warn'
   } else if (status.kind === 'draw') {
     text = `Draw · ${status.reason}`
-  } else if (inCheck) {
-    text = playersTurn ? 'Check · your move' : 'Check'
+  } else if (playersTurn) {
+    text = inCheck ? 'Check · your move' : 'Your move'
+    tone = inCheck ? 'warn' : 'accent'
+  } else if (opponentStatus === 'stuck') {
+    text = 'Out of book'
+    tone = 'warn'
+  } else if (opponentStatus === 'error') {
+    text = "Couldn't reach Lichess"
     tone = 'warn'
   } else {
-    text = playersTurn ? 'Your move' : 'Lichess thinking…'
-    tone = playersTurn ? 'accent' : 'neutral'
+    text = inCheck ? 'Check' : 'Lichess thinking…'
+    tone = inCheck ? 'warn' : 'neutral'
   }
 
   const toneClass =

@@ -30,6 +30,9 @@ src/
     Board.tsx                   — chessground React wrapper
   hooks/
     useChessGame.ts             — chess.js wrapper: fen, turn, dests, history, status, makeMove
+    useOpponent.ts              — auto-plays opponent moves from Lichess explorer; exposes idle/thinking/stuck/error
+  lib/
+    lichess.ts                  — Opening Explorer fetch + ELO band mapping + weighted-random move picker
   state/
     game.ts                     — shared types (GameSettings, Side, AppScreen)
 public/
@@ -43,7 +46,6 @@ Planned but not yet created:
 ```
 src/
   lib/
-    lichess.ts                  — Opening Explorer client
     engine.ts                   — Stockfish.wasm fallback
 ```
 
@@ -60,8 +62,8 @@ src/
 1. **Bootstrap** ✅ — Vite scaffold, Tailwind v4, deps installed, landing placeholder renders
 2. **Starter site** ✅ — onboarding (name + ELO + side), game-view layout (header, player cards, board placeholder, move list), state machine in `App.tsx`
 3. **Board** ✅ — chessground wired to chess.js: drag-to-move, legal-move dots, last-move highlight, check halo, status pill ("Your move" / "Lichess thinking…" / "Checkmate"), populated SAN move list, active-player highlight
-4. **Lichess hookup** — on user move, query explorer with current FEN + ELO band, pick a weighted-random response, animate it
-5. **Engine fallback** — when explorer returns < N games, switch to Stockfish at matching skill level
+4. **Lichess hookup** ✅ — on opponent's turn, query explorer with current FEN + two nearest ELO bands at blitz+rapid, pick a weighted-random response by play frequency, wait a 600–1400 ms "thinking" budget, then animate. Below 5 total games at the position the opponent surfaces "Out of book" (logged to console).
+5. **Engine fallback** — when explorer returns < 5 games, switch to Stockfish at matching skill level (currently surfaces "Out of book" instead)
 6. **Game polish** — captured pieces, clock (optional), result modal, promotion picker (currently auto-queens)
 7. **PWA** — `vite-plugin-pwa`, installable, offline shell
 
@@ -73,6 +75,7 @@ src/
 
 ## Open questions / decisions to revisit
 
-- Which rating bands does the explorer support? (need to check API; likely 1000/1200/1400/1600/1800/2000/2200/2500)
-- Weighted-random vs. mode-of-played-moves for picking the computer's reply — start with weighted-random by frequency.
-- Threshold for switching to engine fallback — start with N=10 games, tune later.
+- Rating bands the explorer supports: `0, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2500`. We snap to the two nearest and pool them for a richer sample.
+- Picking strategy: pure weighted-random by play frequency (decided). Could revisit biasing by win-rate later if the opponent feels too random.
+- Threshold for stuck/engine-fallback: 5 total games (decided). Tune once Stockfish fallback lands.
+- Speeds queried: `blitz,rapid` (decided). Bullet adds noise, classical is sparse at lower ratings.

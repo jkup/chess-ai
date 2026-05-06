@@ -1,8 +1,12 @@
-import { ArrowLeft, LogOut, User } from 'lucide-react'
+import { ArrowLeft, Cpu, LogOut, User, Users } from 'lucide-react'
 import { useMemo } from 'react'
 import { resolveSide, type GameSettings } from '../state/game'
 import { useChessGame, type Color } from '../hooks/useChessGame'
-import { useOpponent, type OpponentStatus } from '../hooks/useOpponent'
+import {
+  useOpponent,
+  type MoveSource,
+  type OpponentStatus,
+} from '../hooks/useOpponent'
 import type { LichessProfile } from '../lib/lichess'
 import { Board } from './Board'
 
@@ -70,11 +74,10 @@ export function GameView({
       <div className="flex-1 flex items-center justify-center p-4 lg:p-8">
         <div className="w-full max-w-5xl flex flex-col lg:flex-row gap-6 items-stretch">
           <div className="flex-1 flex flex-col gap-3">
-            <PlayerCard
-              name="Lichess"
+            <OpponentCard
               elo={settings.elo}
               color={opponentColor}
-              subtitle="Crowd-sourced moves"
+              source={opponent.lastMoveSource}
               active={!playersTurn && game.status.kind === 'playing'}
             />
 
@@ -134,15 +137,15 @@ function StatusPill({
   } else if (playersTurn) {
     text = inCheck ? 'Check · your move' : 'Your move'
     tone = inCheck ? 'warn' : 'accent'
-  } else if (opponentStatus === 'stuck') {
-    text = 'Out of book'
-    tone = 'warn'
   } else if (opponentStatus === 'unauthorized') {
     text = 'Lichess sign-in expired'
     tone = 'warn'
   } else if (opponentStatus === 'error') {
     text = "Couldn't reach Lichess"
     tone = 'warn'
+  } else if (opponentStatus === 'thinking-engine') {
+    text = inCheck ? 'Check' : 'Engine thinking…'
+    tone = inCheck ? 'warn' : 'neutral'
   } else {
     text = inCheck ? 'Check' : 'Lichess thinking…'
     tone = inCheck ? 'warn' : 'neutral'
@@ -160,6 +163,52 @@ function StatusPill({
       className={`text-xs uppercase tracking-widest ${toneClass} transition-colors`}
     >
       {text}
+    </div>
+  )
+}
+
+function OpponentCard({
+  elo,
+  color,
+  source,
+  active,
+}: {
+  elo: number
+  color: 'white' | 'black'
+  source: MoveSource | null
+  active: boolean
+}) {
+  const isEngine = source === 'engine'
+  const name = isEngine ? 'Stockfish' : 'Lichess'
+  const subtitle = isEngine
+    ? 'Engine play (out of book)'
+    : 'Crowd-sourced moves'
+  const Icon = isEngine ? Cpu : Users
+
+  return (
+    <div
+      className={`flex items-center gap-3 px-3 py-2 border rounded-lg transition ${
+        active
+          ? 'bg-[var(--color-accent)]/10 border-[var(--color-accent)]/40'
+          : 'bg-zinc-900/40 border-zinc-900'
+      }`}
+    >
+      <div
+        className="w-8 h-8 rounded-md flex items-center justify-center"
+        style={{
+          background: color === 'white' ? '#f0d9b5' : '#3a3a3a',
+          color: color === 'white' ? '#222' : '#e8e8e8',
+        }}
+      >
+        <Icon className="w-4 h-4" strokeWidth={2} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium text-white truncate">
+          {name}{' '}
+          <span className="text-zinc-500 font-normal">({elo})</span>
+        </div>
+        <div className="text-xs text-zinc-500 truncate">{subtitle}</div>
+      </div>
     </div>
   )
 }

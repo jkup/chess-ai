@@ -6,14 +6,17 @@ import {
   pickWeightedMove,
   totalGames,
 } from '../lib/lichess'
+import { getEngine } from '../lib/engine'
 import type { ChessGame, Color } from './useChessGame'
 
 export type OpponentStatus =
   | 'idle'
-  | 'thinking'
-  | 'stuck'
+  | 'thinking-lichess'
+  | 'thinking-engine'
   | 'error'
   | 'unauthorized'
+
+export type MoveSource = 'lichess' | 'engine'
 
 const MIN_GAMES = 5
 const THINK_MS_MIN = 600
@@ -28,6 +31,26 @@ type Options = {
   onUnauthorized?: () => void
 }
 
+type Result = {
+  status: OpponentStatus
+  lastMoveSource: MoveSource | null
+}
+
+function parseUci(uci: string): {
+  from: Square
+  to: Square
+  promo?: 'q' | 'r' | 'b' | 'n'
+} {
+  return {
+    from: uci.slice(0, 2) as Square,
+    to: uci.slice(2, 4) as Square,
+    promo:
+      uci.length === 5
+        ? (uci[4] as 'q' | 'r' | 'b' | 'n')
+        : undefined,
+  }
+}
+
 export function useOpponent({
   game,
   color,
@@ -35,8 +58,11 @@ export function useOpponent({
   enabled,
   token,
   onUnauthorized,
-}: Options): { status: OpponentStatus } {
+}: Options): Result {
   const [status, setStatus] = useState<OpponentStatus>('idle')
+  const [lastMoveSource, setLastMoveSource] = useState<MoveSource | null>(
+    null
+  )
 
   const myTurn =
     enabled && game.turn === color && game.status.kind === 'playing'
@@ -47,7 +73,7 @@ export function useOpponent({
       return
     }
 
-    setStatus('thinking')
+    setStatus('thinking-lichess')
     const ctrl = new AbortController()
     const startedAt = Date.now()
     const thinkBudget =
@@ -63,21 +89,30 @@ export function useOpponent({
           ctrl.signal
         )
         const games = totalGames(data)
+        const havePick = games >= MIN_GAMES && data.moves.length > 0
+        const pick = havePick ? pickWeightedMove(data.moves) : null
 
-        if (games < MIN_GAMES || data.moves.length === 0) {
-          console.log('[opponent] explorer too sparse, stuck', {
+        let uci: string
+        let source: MoveSource
+
+        if (pick) {
+          uci = pick.uci
+          source = 'lichess'
+        } else {
+          console.log('[opponent] explorer sparse, falling back to engine', {
             games,
             fen: fenAtStart,
             opening: data.opening?.name,
           })
-          if (!ctrl.signal.aborted) setStatus('stuck')
-          return
-        }
-
-        const pick = pickWeightedMove(data.moves)
-        if (!pick) {
-          if (!ctrl.signal.aborted) setStatus('stuck')
-          return
+          if (ctrl.signal.aborted) return
+          setStatus('thinking-engine')
+          const engine = getEngine()
+          await engine.setElo(elo)
+          uci = await engine.getBestMove(fenAtStart, {
+            depth: 12,
+            signal: ctrl.signal,
+          })
+          source = 'engine'
         }
 
         const elapsed = Date.now() - startedAt
@@ -87,14 +122,9 @@ export function useOpponent({
         }
         if (ctrl.signal.aborted) return
 
-        const from = pick.uci.slice(0, 2) as Square
-        const to = pick.uci.slice(2, 4) as Square
-        const promo =
-          pick.uci.length === 5
-            ? (pick.uci[4] as 'q' | 'r' | 'b' | 'n')
-            : undefined
-
-        game.makeMove(from, to, promo)
+        const { from, to, promo } = parseUci(uci)
+        const ok = game.makeMove(from, to, promo)
+        if (ok) setLastMoveSource(source)
       } catch (err) {
         if ((err as { name?: string })?.name === 'AbortError') return
         if (err instanceof LichessUnauthorizedError) {
@@ -114,5 +144,5 @@ export function useOpponent({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myTurn, game.fen, elo, token])
 
-  return { status }
+  return { status, lastMoveSource }
 }

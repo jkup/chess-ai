@@ -4,6 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "predev": "npm run copy:engine",
+    "prebuild": "npm run copy:engine",
+    "copy:engine": "mkdir -p public/stockfish && cp node_modules/stockfish/bin/stockfish-18-lite-single.js public/stockfish/stockfish.js && cp node_modules/stockfish/bin/stockfish-18-lite-single.wasm public/stockfish/stockfish.wasm",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
@@ -16,7 +19,8 @@
     "chessground": "^9.2.1",
     "lucide-react": "^1.14.0",
     "react": "^19.2.5",
-    "react-dom": "^19.2.5"
+    "react-dom": "^19.2.5",
+    "stockfish": "^18.0.7"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

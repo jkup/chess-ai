@@ -1,3 +1,6 @@
+# Engine assets (copied from node_modules by the copy:engine script)
+public/stockfish/
+
 # Logs
 logs
 *.log

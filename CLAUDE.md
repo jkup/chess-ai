@@ -61,6 +61,16 @@ src/
 - `npm run typecheck` — `tsc --noEmit` only
 - `npm run lint` — ESLint
 - `npm run preview` — serve production build
+- `npm run deploy` — build + publish to Cloudflare Pages (`play-the-crowd` project)
+
+## Deployment
+
+- **Production URL**: https://play-the-crowd.pages.dev
+- **Host**: Cloudflare Pages, project name `play-the-crowd`, production branch `main`
+- **Tooling**: `wrangler` (dev dep). `npx wrangler whoami` shows the active account; `npx wrangler login` re-auths if needed.
+- **Process**: `npm run deploy` runs the typecheck + Vite build, then `wrangler pages deploy dist --project-name=play-the-crowd`. Each deploy gets its own preview URL (`<hash>.play-the-crowd.pages.dev`); the bare project URL serves the latest production deployment.
+- **OAuth on prod**: works automatically because `redirect_uri` is `window.location.origin + '/'` at runtime, so Lichess redirects back to `https://play-the-crowd.pages.dev/?code=…`. localStorage tokens are origin-scoped — sign in once per origin (localhost, prod).
+- **GitHub auto-deploy**: not yet wired; deploys are manual via `npm run deploy`.
 
 ## Roadmap
 

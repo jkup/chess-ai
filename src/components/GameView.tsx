@@ -1,4 +1,4 @@
-import { ArrowLeft, User } from 'lucide-react'
+import { ArrowLeft, LogOut, User } from 'lucide-react'
 import { useMemo } from 'react'
 import { resolveSide, type GameSettings } from '../state/game'
 import { useChessGame, type Color } from '../hooks/useChessGame'
@@ -7,10 +7,19 @@ import { Board } from './Board'
 
 type Props = {
   settings: GameSettings
+  token: string
   onExit: () => void
+  onSignOut: () => void
+  onAuthError: () => void
 }
 
-export function GameView({ settings, onExit }: Props) {
+export function GameView({
+  settings,
+  token,
+  onExit,
+  onSignOut,
+  onAuthError,
+}: Props) {
   const playerColor = useMemo(() => resolveSide(settings.side), [settings])
   const opponentColor: Color = playerColor === 'white' ? 'black' : 'white'
 
@@ -25,6 +34,8 @@ export function GameView({ settings, onExit }: Props) {
     color: opponentColor,
     elo: settings.elo,
     enabled: true,
+    token,
+    onUnauthorized: onAuthError,
   })
 
   return (
@@ -43,7 +54,14 @@ export function GameView({ settings, onExit }: Props) {
           inCheck={game.inCheck}
           opponentStatus={opponent.status}
         />
-        <div className="w-20" />
+        <button
+          onClick={onSignOut}
+          title="Sign out of Lichess"
+          className="flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-300 transition w-20 justify-end"
+        >
+          <LogOut className="w-4 h-4" />
+          <span className="hidden sm:inline">Sign out</span>
+        </button>
       </header>
 
       <div className="flex-1 flex items-center justify-center p-4 lg:p-8">
@@ -115,6 +133,9 @@ function StatusPill({
     tone = inCheck ? 'warn' : 'accent'
   } else if (opponentStatus === 'stuck') {
     text = 'Out of book'
+    tone = 'warn'
+  } else if (opponentStatus === 'unauthorized') {
+    text = 'Lichess sign-in expired'
     tone = 'warn'
   } else if (opponentStatus === 'error') {
     text = "Couldn't reach Lichess"

@@ -2,12 +2,18 @@ import { useEffect, useState } from 'react'
 import type { Square } from 'chess.js'
 import {
   fetchExplorerMoves,
+  LichessUnauthorizedError,
   pickWeightedMove,
   totalGames,
 } from '../lib/lichess'
 import type { ChessGame, Color } from './useChessGame'
 
-export type OpponentStatus = 'idle' | 'thinking' | 'stuck' | 'error'
+export type OpponentStatus =
+  | 'idle'
+  | 'thinking'
+  | 'stuck'
+  | 'error'
+  | 'unauthorized'
 
 const MIN_GAMES = 5
 const THINK_MS_MIN = 600
@@ -18,6 +24,8 @@ type Options = {
   color: Color
   elo: number
   enabled: boolean
+  token: string
+  onUnauthorized?: () => void
 }
 
 export function useOpponent({
@@ -25,6 +33,8 @@ export function useOpponent({
   color,
   elo,
   enabled,
+  token,
+  onUnauthorized,
 }: Options): { status: OpponentStatus } {
   const [status, setStatus] = useState<OpponentStatus>('idle')
 
@@ -46,7 +56,12 @@ export function useOpponent({
     const fenAtStart = game.fen
     ;(async () => {
       try {
-        const data = await fetchExplorerMoves(fenAtStart, elo, ctrl.signal)
+        const data = await fetchExplorerMoves(
+          fenAtStart,
+          elo,
+          token,
+          ctrl.signal
+        )
         const games = totalGames(data)
 
         if (games < MIN_GAMES || data.moves.length === 0) {
@@ -82,6 +97,11 @@ export function useOpponent({
         game.makeMove(from, to, promo)
       } catch (err) {
         if ((err as { name?: string })?.name === 'AbortError') return
+        if (err instanceof LichessUnauthorizedError) {
+          if (!ctrl.signal.aborted) setStatus('unauthorized')
+          onUnauthorized?.()
+          return
+        }
         console.error('[opponent] error', err)
         if (!ctrl.signal.aborted) setStatus('error')
       }
@@ -92,7 +112,7 @@ export function useOpponent({
     }
     // game.fen tracks position changes; makeMove ref is stable
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [myTurn, game.fen, elo])
+  }, [myTurn, game.fen, elo, token])
 
   return { status }
 }

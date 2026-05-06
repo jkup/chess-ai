@@ -26,9 +26,17 @@ export function nearestRatingBands(elo: number, count = 2): number[] {
   return sorted.slice(0, count).sort((a, b) => a - b)
 }
 
+export class LichessUnauthorizedError extends Error {
+  constructor() {
+    super('Lichess token rejected')
+    this.name = 'LichessUnauthorizedError'
+  }
+}
+
 export async function fetchExplorerMoves(
   fen: string,
   elo: number,
+  token: string,
   signal?: AbortSignal
 ): Promise<ExplorerResponse> {
   const ratings = nearestRatingBands(elo).join(',')
@@ -41,7 +49,11 @@ export async function fetchExplorerMoves(
   url.searchParams.set('topGames', '0')
   url.searchParams.set('recentGames', '0')
 
-  const res = await fetch(url, { signal })
+  const res = await fetch(url, {
+    signal,
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (res.status === 401) throw new LichessUnauthorizedError()
   if (!res.ok) throw new Error(`Lichess explorer ${res.status}`)
   return (await res.json()) as ExplorerResponse
 }

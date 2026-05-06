@@ -9,7 +9,8 @@ A web chess app where the "computer" plays moves drawn from real human games at 
 - **chessground** — Lichess's actual board renderer (vanilla JS, we wrap it in a React component when we add the board)
 - **chess.js** — move validation, FEN/PGN, legal moves
 - **lucide-react** — UI icons (not chess pieces)
-- **Lichess Opening Explorer API** — `https://explorer.lichess.ovh/lichess?fen=...&speeds=...&ratings=...` returns moves real players made at this position, filterable by rating band. No auth required.
+- **Lichess Opening Explorer API** — `https://explorer.lichess.ovh/lichess?fen=...&speeds=...&ratings=...` returns moves real players made at this position, filterable by rating band. **Requires authentication as of early 2026** — every request must carry `Authorization: Bearer <token>`.
+- **Lichess OAuth 2.0 (PKCE)** — used to obtain the explorer token. SPA flow, no app registration, no scopes requested.
 - **Stockfish.wasm** (planned) — fallback engine when the explorer returns too few games
 
 ### Notes on dependencies
@@ -21,18 +22,20 @@ A web chess app where the "computer" plays moves drawn from real human games at 
 
 ```
 src/
-  App.tsx                       — top-level state machine (onboarding ↔ playing)
+  App.tsx                       — auth state machine (booting/signed-out/signed-in) + screen routing
   main.tsx                      — React entry
   index.css                     — Tailwind import + @theme tokens + base styles
   components/
+    SignIn.tsx                  — landing screen with "Sign in with Lichess" button
     Onboarding.tsx              — name + ELO + side picker
-    GameView.tsx                — header, player cards, board, move list
+    GameView.tsx                — header (with sign-out), player cards, board, move list
     Board.tsx                   — chessground React wrapper
   hooks/
     useChessGame.ts             — chess.js wrapper: fen, turn, dests, history, status, makeMove
-    useOpponent.ts              — auto-plays opponent moves from Lichess explorer; exposes idle/thinking/stuck/error
+    useOpponent.ts              — auto-plays opponent moves from Lichess explorer; exposes idle/thinking/stuck/error/unauthorized
   lib/
-    lichess.ts                  — Opening Explorer fetch + ELO band mapping + weighted-random move picker
+    lichess.ts                  — Opening Explorer fetch (Bearer auth) + ELO band mapping + weighted-random move picker; exports LichessUnauthorizedError
+    lichess-auth.ts             — OAuth 2.0 PKCE: startSignIn, handleAuthCallback, token storage in localStorage
   state/
     game.ts                     — shared types (GameSettings, Side, AppScreen)
 public/
@@ -62,7 +65,7 @@ src/
 1. **Bootstrap** ✅ — Vite scaffold, Tailwind v4, deps installed, landing placeholder renders
 2. **Starter site** ✅ — onboarding (name + ELO + side), game-view layout (header, player cards, board placeholder, move list), state machine in `App.tsx`
 3. **Board** ✅ — chessground wired to chess.js: drag-to-move, legal-move dots, last-move highlight, check halo, status pill ("Your move" / "Lichess thinking…" / "Checkmate"), populated SAN move list, active-player highlight
-4. **Lichess hookup** ✅ — on opponent's turn, query explorer with current FEN + two nearest ELO bands at blitz+rapid, pick a weighted-random response by play frequency, wait a 600–1400 ms "thinking" budget, then animate. Below 5 total games at the position the opponent surfaces "Out of book" (logged to console).
+4. **Lichess hookup** ✅ — OAuth PKCE sign-in (no scopes, no app registration), token stored in `localStorage`. On opponent's turn, query explorer with current FEN + two nearest ELO bands at blitz+rapid, pick a weighted-random response by play frequency, wait a 600–1400 ms "thinking" budget, then animate. Below 5 total games at the position the opponent surfaces "Out of book" (logged to console). Token rejection (401) bounces the user back to the sign-in screen.
 5. **Engine fallback** — when explorer returns < 5 games, switch to Stockfish at matching skill level (currently surfaces "Out of book" instead)
 6. **Game polish** — captured pieces, clock (optional), result modal, promotion picker (currently auto-queens)
 7. **PWA** — `vite-plugin-pwa`, installable, offline shell
@@ -79,3 +82,11 @@ src/
 - Picking strategy: pure weighted-random by play frequency (decided). Could revisit biasing by win-rate later if the opponent feels too random.
 - Threshold for stuck/engine-fallback: 5 total games (decided). Tune once Stockfish fallback lands.
 - Speeds queried: `blitz,rapid` (decided). Bullet adds noise, classical is sparse at lower ratings.
+
+## OAuth notes
+
+- Lichess locked the opening explorer behind authentication in early 2026 to defend against DDoS. There is no public/anonymous mode.
+- Our `client_id` is the GitHub repo URL (`https://github.com/jkup/chess-ai`). PKCE means no app registration is required; any string works, but a URL pointing to the project's homepage is the convention so the consent screen tells the user who's asking.
+- `redirect_uri` is computed from `window.location.origin + '/'` at runtime, so it works on whatever port Vite happens to serve. Caveat: if the dev server restarts mid-flow and picks a different port, the callback can't reach the app — re-open the new port and start over.
+- PKCE verifier + state are in `sessionStorage` (single-tab), access token in `localStorage` (persistent). Sign-out clears the token.
+- We don't request any scopes — the explorer just needs the request to be authenticated.

@@ -16,6 +16,7 @@ type Props = {
   dests: Map<Square, Square[]>
   lastMove: [Square, Square] | undefined
   inCheck: boolean
+  hintArrow?: { from: Square; to: Square }
   onMove: (from: Square, to: Square) => void
 }
 
@@ -78,6 +79,21 @@ export function Board(props: Props) {
     props.lastMove,
     props.inCheck,
   ])
+
+  useEffect(() => {
+    if (!apiRef.current) return
+    if (props.hintArrow) {
+      apiRef.current.setAutoShapes([
+        {
+          orig: props.hintArrow.from as Key,
+          dest: props.hintArrow.to as Key,
+          brush: 'yellow',
+        },
+      ])
+    } else {
+      apiRef.current.setAutoShapes([])
+    }
+  }, [props.hintArrow?.from, props.hintArrow?.to])
 
   return <div ref={elRef} className="cg-wrap w-full h-full" />
 }

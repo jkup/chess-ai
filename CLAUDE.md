@@ -36,10 +36,11 @@ src/
   hooks/
     useChessGame.ts             — chess.js wrapper: fen, turn, dests, history, status, makeMove
     useOpponent.ts              — orchestrates moves: tries Lichess explorer first, falls back to engine; exposes status (idle / thinking-lichess / thinking-engine / error / unauthorized) and lastMoveSource ('lichess' | 'engine' | null)
+    useHint.ts                  — on-demand "what should I play?" advice for the player. Same explorer→engine fallback as the bot but picks the most-played move (deterministic) and runs the engine deeper (depth 14). Auto-clears when the FEN changes.
   lib/
-    lichess.ts                  — Opening Explorer fetch (Bearer auth) + ELO band mapping + weighted-random move picker; fetchAccount → LichessProfile; exports LichessUnauthorizedError
+    lichess.ts                  — Opening Explorer fetch (Bearer auth) + ELO band mapping + pickWeightedMove (bot) and pickTopMove (hints); fetchAccount → LichessProfile; exports LichessUnauthorizedError
     lichess-auth.ts             — OAuth 2.0 PKCE: startSignIn, handleAuthCallback, token storage in localStorage
-    engine.ts                   — Singleton Stockfish wrapper: spawns Worker at /stockfish/stockfish.js, UCI handshake, setElo (UCI_LimitStrength + UCI_Elo, clamped 1320–3190), getBestMove (depth-12, abortable)
+    engine.ts                   — Singleton Stockfish wrapper: spawns Worker at /stockfish/stockfish.js, UCI handshake, setElo (UCI_LimitStrength + UCI_Elo, clamped 1320–3190), getBestMove (depth-configurable, abortable)
   state/
     game.ts                     — shared types (GameSettings = { elo, side }, Side, AppScreen)
 public/
@@ -75,8 +76,9 @@ vite.config.ts                  — registers @vitejs/plugin-react and @tailwind
 3. **Board** ✅ — chessground wired to chess.js: drag-to-move, legal-move dots, last-move highlight, check halo, status pill ("Your move" / "Lichess thinking…" / "Checkmate"), populated SAN move list, active-player highlight
 4. **Lichess hookup** ✅ — OAuth PKCE sign-in (no scopes, no app registration), token stored in `localStorage`. After auth, the app fetches the user's `/api/account` profile so onboarding can show their username and pre-fill the rating slider with the average of their rapid + blitz ratings. On opponent's turn, query explorer with current FEN + two nearest ELO bands at blitz+rapid, pick a weighted-random response by play frequency, wait a 600–1400 ms "thinking" budget, then animate. Below 5 total games at the position the opponent surfaces "Out of book" (logged to console). Token rejection (401) on either the account or explorer fetch bounces the user back to the sign-in screen.
 5. **Engine fallback** ✅ — when the explorer has fewer than 5 games at the position, the opponent hands off to Stockfish 18 (lite, single-threaded WASM, served from `/stockfish/`). ELO is matched to the opponent rating via `UCI_LimitStrength` + `UCI_Elo` (clamped to 1320–3190). The status pill reads "Engine thinking…" instead of "Lichess thinking…", and the opponent card swaps from `Users` icon + "Crowd-sourced moves" to `Cpu` icon + "Engine play (out of book)". The check is per-move, so positions that drop back into the database resume crowd-sourced play. The 600–1400 ms thinking budget pads both paths so the engine path doesn't feel suddenly snappier.
-6. **Game polish** — captured pieces, clock (optional), result modal, promotion picker (currently auto-queens)
-7. **PWA** — `vite-plugin-pwa`, installable, offline shell
+6. **Hints** ✅ — lightbulb button in the GameView header (only enabled on the player's turn). Click → query explorer at the user's rating band, pick the most-played move (deterministic). If the explorer has nothing, fall back to the local Stockfish at depth 14 with the user's ELO. Suggestion is shown as a yellow chessground arrow + an amber banner below the board ("Try Nf3 · Most common at your rating" or "Engine suggestion (out of book)") with a "Got it" dismiss button. The hint auto-clears whenever the FEN changes, so any move the player makes (whether or not it's the hinted one) wipes the arrow.
+7. **Game polish** — captured pieces, clock (optional), result modal, promotion picker (currently auto-queens)
+8. **PWA** — `vite-plugin-pwa`, installable, offline shell
 
 ## Design intent
 

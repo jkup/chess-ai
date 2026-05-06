@@ -109,6 +109,15 @@ export function pickWeightedMove(
   return moves[moves.length - 1]
 }
 
+export function pickTopMove(moves: ExplorerMove[]): ExplorerMove | null {
+  if (moves.length === 0) return null
+  return moves.reduce((best, m) => {
+    const c = m.white + m.draws + m.black
+    const bc = best.white + best.draws + best.black
+    return c > bc ? m : best
+  })
+}
+
 export function totalGames(res: ExplorerResponse): number {
   return res.white + res.draws + res.black
 }

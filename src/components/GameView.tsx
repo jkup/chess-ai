@@ -1,4 +1,13 @@
-import { ArrowLeft, Cpu, LogOut, User, Users } from 'lucide-react'
+import {
+  ArrowLeft,
+  Cpu,
+  Lightbulb,
+  LoaderCircle,
+  LogOut,
+  User,
+  Users,
+  X,
+} from 'lucide-react'
 import { useMemo } from 'react'
 import { resolveSide, type GameSettings } from '../state/game'
 import { useChessGame, type Color } from '../hooks/useChessGame'
@@ -7,6 +16,7 @@ import {
   type MoveSource,
   type OpponentStatus,
 } from '../hooks/useOpponent'
+import { useHint } from '../hooks/useHint'
 import type { LichessProfile } from '../lib/lichess'
 import { Board } from './Board'
 
@@ -45,6 +55,19 @@ export function GameView({
     onUnauthorized: onAuthError,
   })
 
+  const hintEnabled = playersTurn && game.status.kind === 'playing'
+  const hint = useHint({
+    fen: game.fen,
+    elo: settings.elo,
+    token,
+    enabled: hintEnabled,
+    onUnauthorized: onAuthError,
+  })
+  const hintArrow =
+    hint.hint.kind === 'shown'
+      ? { from: hint.hint.from, to: hint.hint.to }
+      : undefined
+
   return (
     <div className="min-h-full flex flex-col">
       <header className="flex items-center justify-between px-4 py-3 border-b border-zinc-900">
@@ -61,14 +84,33 @@ export function GameView({
           inCheck={game.inCheck}
           opponentStatus={opponent.status}
         />
-        <button
-          onClick={onSignOut}
-          title="Sign out of Lichess"
-          className="flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-300 transition w-20 justify-end"
-        >
-          <LogOut className="w-4 h-4" />
-          <span className="hidden sm:inline">Sign out</span>
-        </button>
+        <div className="flex items-center gap-3 justify-end">
+          <button
+            onClick={() => hint.request()}
+            disabled={!hintEnabled || hint.hint.kind === 'loading'}
+            title={
+              hintEnabled
+                ? 'Suggest a move'
+                : 'Hints available on your turn'
+            }
+            className="flex items-center gap-1.5 text-sm text-zinc-500 hover:text-amber-300 disabled:text-zinc-700 disabled:hover:text-zinc-700 transition"
+          >
+            {hint.hint.kind === 'loading' ? (
+              <LoaderCircle className="w-4 h-4 animate-spin" />
+            ) : (
+              <Lightbulb className="w-4 h-4" />
+            )}
+            <span className="hidden sm:inline">Hint</span>
+          </button>
+          <button
+            onClick={onSignOut}
+            title="Sign out of Lichess"
+            className="flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-300 transition"
+          >
+            <LogOut className="w-4 h-4" />
+            <span className="hidden sm:inline">Sign out</span>
+          </button>
+        </div>
       </header>
 
       <div className="flex-1 flex items-center justify-center p-4 lg:p-8">
@@ -90,9 +132,21 @@ export function GameView({
                 dests={game.dests}
                 lastMove={game.lastMove}
                 inCheck={game.inCheck}
+                hintArrow={hintArrow}
                 onMove={(from, to) => game.makeMove(from, to)}
               />
             </BoardWrap>
+
+            {hint.hint.kind === 'shown' && (
+              <HintBanner
+                san={hint.hint.san}
+                source={hint.hint.source}
+                onDismiss={hint.dismiss}
+              />
+            )}
+            {hint.hint.kind === 'error' && (
+              <HintError onDismiss={hint.dismiss} />
+            )}
 
             <PlayerCard
               name={profile.username}
@@ -163,6 +217,58 @@ function StatusPill({
       className={`text-xs uppercase tracking-widest ${toneClass} transition-colors`}
     >
       {text}
+    </div>
+  )
+}
+
+function HintBanner({
+  san,
+  source,
+  onDismiss,
+}: {
+  san: string
+  source: 'lichess' | 'engine'
+  onDismiss: () => void
+}) {
+  return (
+    <div className="flex items-center gap-3 px-4 py-2.5 bg-amber-950/40 border border-amber-900/60 rounded-lg animate-fade-in">
+      <Lightbulb className="w-4 h-4 text-amber-400 shrink-0" />
+      <div className="flex-1 min-w-0">
+        <div className="text-sm text-amber-100">
+          Try{' '}
+          <span className="font-mono font-semibold text-amber-200">
+            {san}
+          </span>
+        </div>
+        <div className="text-[11px] text-amber-200/60">
+          {source === 'lichess'
+            ? 'Most common at your rating'
+            : 'Engine suggestion (out of book)'}
+        </div>
+      </div>
+      <button
+        onClick={onDismiss}
+        className="text-xs text-amber-300 hover:text-amber-100 px-2.5 py-1 rounded-md hover:bg-amber-900/40 transition"
+      >
+        Got it
+      </button>
+    </div>
+  )
+}
+
+function HintError({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <div className="flex items-center gap-3 px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-lg">
+      <span className="flex-1 text-sm text-zinc-400">
+        Couldn't fetch a hint right now.
+      </span>
+      <button
+        onClick={onDismiss}
+        aria-label="Dismiss"
+        className="text-zinc-500 hover:text-zinc-200 transition"
+      >
+        <X className="w-4 h-4" />
+      </button>
     </div>
   )
 }

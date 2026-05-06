@@ -15,35 +15,36 @@ A web chess app where the "computer" plays moves drawn from real human games at 
 ### Notes on dependencies
 
 - `chessground` is marked deprecated on npm but is still the library Lichess itself uses (source: github.com/lichess-org/chessground). Version `9.2.1` works; we'll revisit if it ever breaks.
-- Piece sets (cburnett, merida, alpha, etc.) come from Lichess's SVG assets — we'll vendor the ones we want under `public/pieces/`.
+- Piece sprites come embedded as base64 data URLs inside `chessground/assets/chessground.cburnett.css`, so no vendoring required. To swap piece set, replace that one CSS import in `Board.tsx`.
 
 ## Project structure
 
 ```
 src/
-  App.tsx        — main component (currently a landing placeholder)
-  main.tsx       — React entry
-  index.css      — Tailwind import + @theme tokens + base styles
+  App.tsx                       — top-level state machine (onboarding ↔ playing)
+  main.tsx                      — React entry
+  index.css                     — Tailwind import + @theme tokens + base styles
+  components/
+    Onboarding.tsx              — name + ELO + side picker
+    GameView.tsx                — header, player cards, board, move list
+    Board.tsx                   — chessground React wrapper
+  hooks/
+    useChessGame.ts             — chess.js wrapper: fen, turn, dests, history, status, makeMove
+  state/
+    game.ts                     — shared types (GameSettings, Side, AppScreen)
 public/
   favicon.svg
 index.html
-vite.config.ts   — registers @vitejs/plugin-react and @tailwindcss/vite
+vite.config.ts                  — registers @vitejs/plugin-react and @tailwindcss/vite
 ```
 
-Future structure (not yet created):
+Planned but not yet created:
 
 ```
 src/
-  components/
-    Board.tsx        — chessground React wrapper
-    EloPicker.tsx    — onboarding screen
-    GameView.tsx     — board + sidebar
   lib/
-    lichess.ts       — Opening Explorer client
-    chess.ts         — chess.js helpers (legal moves, FEN bookkeeping)
-    engine.ts        — Stockfish.wasm fallback
-  state/
-    game.ts          — game state (Zustand if it grows)
+    lichess.ts                  — Opening Explorer client
+    engine.ts                   — Stockfish.wasm fallback
 ```
 
 ## Commands
@@ -57,11 +58,11 @@ src/
 ## Roadmap
 
 1. **Bootstrap** ✅ — Vite scaffold, Tailwind v4, deps installed, landing placeholder renders
-2. **Starter site** — onboarding flow: name + ELO entry, "Start game" button, basic layout
-3. **Board** — drop in chessground, render starting position, legal-move highlighting
+2. **Starter site** ✅ — onboarding (name + ELO + side), game-view layout (header, player cards, board placeholder, move list), state machine in `App.tsx`
+3. **Board** ✅ — chessground wired to chess.js: drag-to-move, legal-move dots, last-move highlight, check halo, status pill ("Your move" / "Lichess thinking…" / "Checkmate"), populated SAN move list, active-player highlight
 4. **Lichess hookup** — on user move, query explorer with current FEN + ELO band, pick a weighted-random response, animate it
 5. **Engine fallback** — when explorer returns < N games, switch to Stockfish at matching skill level
-6. **Game polish** — move list, captured pieces, clock (optional), result modal
+6. **Game polish** — captured pieces, clock (optional), result modal, promotion picker (currently auto-queens)
 7. **PWA** — `vite-plugin-pwa`, installable, offline shell
 
 ## Design intent

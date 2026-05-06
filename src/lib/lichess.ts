@@ -33,6 +33,43 @@ export class LichessUnauthorizedError extends Error {
   }
 }
 
+export type LichessProfile = {
+  username: string
+  estimatedElo: number | null
+}
+
+type AccountPerf = { rating: number; games: number }
+type AccountResponse = {
+  username: string
+  perfs?: Partial<Record<'blitz' | 'rapid' | 'classical', AccountPerf>>
+}
+
+function estimateElo(perfs: AccountResponse['perfs']): number | null {
+  const candidates = [perfs?.rapid, perfs?.blitz].filter(
+    (p): p is AccountPerf => !!p && p.games > 0
+  )
+  if (candidates.length === 0) return null
+  const sum = candidates.reduce((acc, p) => acc + p.rating, 0)
+  return Math.round(sum / candidates.length)
+}
+
+export async function fetchAccount(
+  token: string,
+  signal?: AbortSignal
+): Promise<LichessProfile> {
+  const res = await fetch('https://lichess.org/api/account', {
+    signal,
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (res.status === 401) throw new LichessUnauthorizedError()
+  if (!res.ok) throw new Error(`Lichess account ${res.status}`)
+  const data = (await res.json()) as AccountResponse
+  return {
+    username: data.username,
+    estimatedElo: estimateElo(data.perfs),
+  }
+}
+
 export async function fetchExplorerMoves(
   fen: string,
   elo: number,

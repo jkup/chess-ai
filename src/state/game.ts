@@ -1,7 +1,6 @@
 export type Side = 'white' | 'black' | 'random'
 
 export type GameSettings = {
-  name: string
   elo: number
   side: Side
 }

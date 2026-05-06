@@ -7,22 +7,27 @@ import {
   type GameSettings,
   type Side,
 } from '../state/game'
+import type { LichessProfile } from '../lib/lichess'
 
 type Props = {
+  profile: LichessProfile
   onStart: (settings: GameSettings) => void
 }
 
-export function Onboarding({ onStart }: Props) {
-  const [name, setName] = useState('')
-  const [elo, setElo] = useState(ELO_DEFAULT)
+function clampElo(value: number | null | undefined): number {
+  if (typeof value !== 'number' || Number.isNaN(value)) return ELO_DEFAULT
+  return Math.min(ELO_MAX, Math.max(ELO_MIN, value))
+}
+
+export function Onboarding({ profile, onStart }: Props) {
+  const [elo, setElo] = useState(() => clampElo(profile.estimatedElo))
   const [side, setSide] = useState<Side>('white')
 
-  const trimmed = name.trim()
-  const valid = trimmed.length > 0 && elo >= ELO_MIN && elo <= ELO_MAX
+  const valid = elo >= ELO_MIN && elo <= ELO_MAX
 
   const submit = () => {
     if (!valid) return
-    onStart({ name: trimmed, elo, side })
+    onStart({ elo, side })
   }
 
   return (
@@ -37,7 +42,8 @@ export function Onboarding({ onStart }: Props) {
               Chess AI
             </h1>
             <p className="text-xs text-zinc-500 mt-1">
-              Play against the crowd
+              Signed in as{' '}
+              <span className="text-zinc-300">{profile.username}</span>
             </p>
           </div>
         </div>
@@ -49,21 +55,13 @@ export function Onboarding({ onStart }: Props) {
           }}
           className="space-y-6"
         >
-          <Field label="Your name">
-            <input
-              autoFocus
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Magnus"
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-white placeholder:text-zinc-600 focus:outline-none focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent)]/20 transition"
-              maxLength={32}
-            />
-          </Field>
-
           <Field
-            label="Your rating"
-            hint={`${ELO_MIN}–${ELO_MAX}`}
+            label="Opponent rating"
+            hint={
+              profile.estimatedElo
+                ? `your average · ${profile.estimatedElo}`
+                : `${ELO_MIN}–${ELO_MAX}`
+            }
             value={String(elo)}
           >
             <input
@@ -146,6 +144,9 @@ function Field({
           <span className="text-xs text-zinc-600">{hint}</span>
         )}
       </div>
+      {value && hint && (
+        <div className="text-[11px] text-zinc-600 mb-2 -mt-1">{hint}</div>
+      )}
       {children}
     </label>
   )

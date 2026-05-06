@@ -27,17 +27,17 @@ src/
   index.css                     — Tailwind import + @theme tokens + base styles
   components/
     SignIn.tsx                  — landing screen with "Sign in with Lichess" button
-    Onboarding.tsx              — name + ELO + side picker
+    Onboarding.tsx              — ELO slider (pre-filled from Lichess rating) + side picker
     GameView.tsx                — header (with sign-out), player cards, board, move list
     Board.tsx                   — chessground React wrapper
   hooks/
     useChessGame.ts             — chess.js wrapper: fen, turn, dests, history, status, makeMove
     useOpponent.ts              — auto-plays opponent moves from Lichess explorer; exposes idle/thinking/stuck/error/unauthorized
   lib/
-    lichess.ts                  — Opening Explorer fetch (Bearer auth) + ELO band mapping + weighted-random move picker; exports LichessUnauthorizedError
+    lichess.ts                  — Opening Explorer fetch (Bearer auth) + ELO band mapping + weighted-random move picker; fetchAccount → LichessProfile; exports LichessUnauthorizedError
     lichess-auth.ts             — OAuth 2.0 PKCE: startSignIn, handleAuthCallback, token storage in localStorage
   state/
-    game.ts                     — shared types (GameSettings, Side, AppScreen)
+    game.ts                     — shared types (GameSettings = { elo, side }, Side, AppScreen)
 public/
   favicon.svg
 index.html
@@ -63,9 +63,9 @@ src/
 ## Roadmap
 
 1. **Bootstrap** ✅ — Vite scaffold, Tailwind v4, deps installed, landing placeholder renders
-2. **Starter site** ✅ — onboarding (name + ELO + side), game-view layout (header, player cards, board placeholder, move list), state machine in `App.tsx`
+2. **Starter site** ✅ — onboarding (ELO + side; ELO pre-filled from the user's Lichess rapid/blitz rating), game-view layout (header, player cards, board placeholder, move list), state machine in `App.tsx`
 3. **Board** ✅ — chessground wired to chess.js: drag-to-move, legal-move dots, last-move highlight, check halo, status pill ("Your move" / "Lichess thinking…" / "Checkmate"), populated SAN move list, active-player highlight
-4. **Lichess hookup** ✅ — OAuth PKCE sign-in (no scopes, no app registration), token stored in `localStorage`. On opponent's turn, query explorer with current FEN + two nearest ELO bands at blitz+rapid, pick a weighted-random response by play frequency, wait a 600–1400 ms "thinking" budget, then animate. Below 5 total games at the position the opponent surfaces "Out of book" (logged to console). Token rejection (401) bounces the user back to the sign-in screen.
+4. **Lichess hookup** ✅ — OAuth PKCE sign-in (no scopes, no app registration), token stored in `localStorage`. After auth, the app fetches the user's `/api/account` profile so onboarding can show their username and pre-fill the rating slider with the average of their rapid + blitz ratings. On opponent's turn, query explorer with current FEN + two nearest ELO bands at blitz+rapid, pick a weighted-random response by play frequency, wait a 600–1400 ms "thinking" budget, then animate. Below 5 total games at the position the opponent surfaces "Out of book" (logged to console). Token rejection (401) on either the account or explorer fetch bounces the user back to the sign-in screen.
 5. **Engine fallback** — when explorer returns < 5 games, switch to Stockfish at matching skill level (currently surfaces "Out of book" instead)
 6. **Game polish** — captured pieces, clock (optional), result modal, promotion picker (currently auto-queens)
 7. **PWA** — `vite-plugin-pwa`, installable, offline shell

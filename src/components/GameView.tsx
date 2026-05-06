@@ -3,10 +3,12 @@ import { useMemo } from 'react'
 import { resolveSide, type GameSettings } from '../state/game'
 import { useChessGame, type Color } from '../hooks/useChessGame'
 import { useOpponent, type OpponentStatus } from '../hooks/useOpponent'
+import type { LichessProfile } from '../lib/lichess'
 import { Board } from './Board'
 
 type Props = {
   settings: GameSettings
+  profile: LichessProfile
   token: string
   onExit: () => void
   onSignOut: () => void
@@ -15,6 +17,7 @@ type Props = {
 
 export function GameView({
   settings,
+  profile,
   token,
   onExit,
   onSignOut,
@@ -89,8 +92,8 @@ export function GameView({
             </BoardWrap>
 
             <PlayerCard
-              name={settings.name}
-              elo={settings.elo}
+              name={profile.username}
+              elo={profile.estimatedElo ?? settings.elo}
               color={playerColor}
               subtitle="You"
               active={playersTurn && game.status.kind === 'playing'}

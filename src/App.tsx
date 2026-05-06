@@ -9,11 +9,31 @@ import {
   handleAuthCallback,
   isAuthCallback,
 } from './lib/lichess-auth'
+import {
+  fetchAccount,
+  LichessUnauthorizedError,
+  type LichessProfile,
+} from './lib/lichess'
 
 type AuthState =
   | { kind: 'booting' }
   | { kind: 'signed-out'; error?: string }
-  | { kind: 'signed-in'; token: string }
+  | { kind: 'signed-in'; token: string; profile: LichessProfile }
+
+const FALLBACK_PROFILE: LichessProfile = {
+  username: 'Player',
+  estimatedElo: null,
+}
+
+async function loadProfile(token: string): Promise<LichessProfile> {
+  try {
+    return await fetchAccount(token)
+  } catch (err) {
+    if (err instanceof LichessUnauthorizedError) throw err
+    console.error('[auth] account fetch failed, using fallback', err)
+    return FALLBACK_PROFILE
+  }
+}
 
 function App() {
   const [auth, setAuth] = useState<AuthState>({ kind: 'booting' })
@@ -23,20 +43,25 @@ function App() {
     let cancelled = false
     ;(async () => {
       try {
+        let token: string | null = null
         if (isAuthCallback()) {
-          const token = await handleAuthCallback()
-          if (!cancelled) setAuth({ kind: 'signed-in', token })
+          token = await handleAuthCallback()
+        } else {
+          token = getStoredToken()
+        }
+        if (!token) {
+          if (!cancelled) setAuth({ kind: 'signed-out' })
           return
         }
-        const stored = getStoredToken()
-        if (!cancelled) {
-          setAuth(
-            stored
-              ? { kind: 'signed-in', token: stored }
-              : { kind: 'signed-out' }
-          )
-        }
+        const profile = await loadProfile(token)
+        if (!cancelled) setAuth({ kind: 'signed-in', token, profile })
       } catch (err) {
+        if (err instanceof LichessUnauthorizedError) {
+          clearStoredToken()
+          if (!cancelled)
+            setAuth({ kind: 'signed-out', error: 'Sign-in expired' })
+          return
+        }
         const message = err instanceof Error ? err.message : 'Sign-in failed'
         if (!cancelled) setAuth({ kind: 'signed-out', error: message })
       }
@@ -63,6 +88,7 @@ function App() {
   if (screen.kind === 'onboarding') {
     return (
       <Onboarding
+        profile={auth.profile}
         onStart={(settings) => setScreen({ kind: 'playing', settings })}
       />
     )
@@ -71,6 +97,7 @@ function App() {
   return (
     <GameView
       settings={screen.settings}
+      profile={auth.profile}
       token={auth.token}
       onExit={() => setScreen({ kind: 'onboarding' })}
       onSignOut={signOut}
